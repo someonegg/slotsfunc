@@ -109,3 +109,15 @@ func Union(a, b Table) Table {
 	}
 	return t
 }
+
+type Rtable map[Slot][]Inst
+
+func Reverse(t Table) Rtable {
+	r := make(Rtable)
+	for inst, slots := range t {
+		for _, slot := range slots {
+			r[slot] = append(r[slot], inst)
+		}
+	}
+	return r
+}
