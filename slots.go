@@ -21,10 +21,10 @@ func Allot(base Table, added []Slot, news []Inst, rms []Inst) Table {
 		total += len(slots)
 	}
 
-	allot := append([]Slot{}, added...)
+	allots := append([]Slot{}, added...)
 	for _, inst := range rms {
 		slots := t[inst]
-		allot = append(allot, slots...)
+		allots = append(allots, slots...)
 		delete(t, inst)
 	}
 
@@ -41,11 +41,30 @@ func Allot(base Table, added []Slot, news []Inst, rms []Inst) Table {
 		avg = 1
 	}
 
-	for need := len(news)*avg - len(allot); need > 0; {
+	hasSlot := func(ss []Slot, s Slot) bool {
+		for i := 0; i < len(ss); i++ {
+			if ss[i] == s {
+				return true
+			}
+		}
+		return false
+	}
+
+	evictRepeated := func(ss []Slot) {
+		for i := 0; i < len(ss); i++ {
+			if hasSlot(ss[i+1:], ss[i]) {
+				ss[i], ss[len(ss)-1] = ss[len(ss)-1], ss[i]
+				return
+			}
+		}
+	}
+
+	for need := len(news)*avg - len(allots); need > 0; {
 		noop := true
 		for inst, slots := range t {
 			if len(slots) > avg {
-				allot = append(allot, slots[len(slots)-1])
+				evictRepeated(slots)
+				allots = append(allots, slots[len(slots)-1])
 				t[inst] = slots[0 : len(slots)-1]
 				noop = false
 				if need--; need <= 0 {
@@ -58,42 +77,40 @@ func Allot(base Table, added []Slot, news []Inst, rms []Inst) Table {
 		}
 	}
 
-	for len(allot) > 0 {
-		noop := true
+	assign := func(new Slot, filter func(inst Inst, slots []Slot, new Slot) bool) bool {
 		for inst, slots := range t {
-			if len(slots) < avg {
-				t[inst] = append(slots, allot[len(allot)-1])
-				allot = allot[0 : len(allot)-1]
-				noop = false
-				if len(allot) <= 0 {
-					break
-				}
+			if filter(inst, slots, new) {
+				t[inst] = append(slots, new)
+				return true
 			}
 		}
-		if noop {
-			break
-		}
+		return false
 	}
 
-	for len(allot) > 0 {
-		noop := true
-		for inst, slots := range t {
-			if len(slots) == avg {
-				t[inst] = append(slots, allot[len(allot)-1])
-				allot = allot[0 : len(allot)-1]
-				noop = false
-				if len(allot) <= 0 {
-					break
-				}
-			}
+	for _, allot := range allots {
+		if assign(allot, func(inst Inst, slots []Slot, new Slot) bool {
+			return len(slots) < avg && !hasSlot(slots, new)
+		}) {
+			continue
 		}
-		if noop {
-			break
-		}
-	}
 
-	if len(allot) > 0 {
-		panic("impossible")
+		if assign(allot, func(inst Inst, slots []Slot, new Slot) bool {
+			return len(slots) == avg && !hasSlot(slots, new)
+		}) {
+			continue
+		}
+
+		if assign(allot, func(inst Inst, slots []Slot, new Slot) bool {
+			return len(slots) < avg
+		}) {
+			continue
+		}
+
+		if !assign(allot, func(inst Inst, slots []Slot, new Slot) bool {
+			return len(slots) == avg
+		}) {
+			panic("impossible")
+		}
 	}
 
 	return t

@@ -7,22 +7,22 @@ package slotsfunc
 import "testing"
 
 func TestAllotUnion(t *testing.T) {
-	first := Allot(nil, []Slot{1, 1, 2, 2, 3, 3, 4, 4, 5, 5}, []Inst{"a", "b", "c"}, nil)
+	first := Allot(nil, []Slot{1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5}, []Inst{"a", "b"}, nil)
 	t.Log(first)
 
-	second := Allot(first, nil, []Inst{"d", "e"}, nil)
+	second := Allot(first, nil, []Inst{"c", "d", "e"}, nil)
 	t.Log(second)
 
-	third := Allot(second, nil, nil, []Inst{"a", "e", "f"})
+	third := Allot(second, nil, nil, []Inst{"b", "e", "f"})
 	t.Log(third)
 
 	fourth := Allot(third, []Slot{1, 2, 3, 4, 5}, nil, nil)
 	t.Log(fourth)
 
-	fifth := Allot(fourth, nil, []Inst{"g", "h"}, []Inst{"d"})
+	fifth := Allot(fourth, nil, []Inst{"g"}, []Inst{"d"})
 	t.Log(fifth)
 
-	sixth := Allot(fifth, []Slot{4, 3, 2, 5, 1}, nil, nil)
+	sixth := Allot(fifth, []Slot{4, 3, 2, 5, 1}, []Inst{"h", "i"}, nil)
 	t.Log(sixth)
 
 	unionth := Union(fifth, sixth)
