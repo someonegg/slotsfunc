@@ -7,13 +7,10 @@ package slotsfunc
 
 import "math"
 
-type Inst interface{}
-type Slot interface{}
+type Table[Inst, Slot comparable] map[Inst][]Slot
 
-type Table map[Inst][]Slot
-
-func Allot(base Table, added []Slot, news []Inst, rms []Inst) Table {
-	t := make(Table)
+func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []Inst, rms []Inst) Table[Inst, Slot] {
+	t := make(Table[Inst, Slot])
 
 	total := len(added)
 	for inst, slots := range base {
@@ -116,8 +113,8 @@ func Allot(base Table, added []Slot, news []Inst, rms []Inst) Table {
 	return t
 }
 
-func Union(a, b Table) Table {
-	t := make(Table)
+func Union[Inst, Slot comparable](a, b Table[Inst, Slot]) Table[Inst, Slot] {
+	t := make(Table[Inst, Slot])
 	for inst, slots := range a {
 		t[inst] = append([]Slot{}, slots...)
 	}
@@ -127,10 +124,8 @@ func Union(a, b Table) Table {
 	return t
 }
 
-type Rtable map[Slot][]Inst
-
-func Reverse(t Table) Rtable {
-	r := make(Rtable)
+func Reverse[Inst, Slot comparable](t Table[Inst, Slot]) Table[Slot, Inst] {
+	r := make(Table[Slot, Inst])
 	for inst, slots := range t {
 		for _, slot := range slots {
 			r[slot] = append(r[slot], inst)

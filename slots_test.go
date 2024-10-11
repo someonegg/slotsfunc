@@ -6,6 +6,9 @@ package slotsfunc
 
 import "testing"
 
+type Slot = int
+type Inst = string
+
 func TestAllotUnion(t *testing.T) {
 	first := Allot(nil, []Slot{1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5}, []Inst{"a", "b"}, nil)
 	t.Log(first)
