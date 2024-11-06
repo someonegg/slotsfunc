@@ -5,7 +5,10 @@
 // Package slotsfunc provides several functions to manage slots.
 package slotsfunc
 
-import "math"
+import (
+	"math"
+	"math/rand"
+)
 
 type Table[Inst, Slot comparable] map[Inst][]Slot
 
@@ -20,7 +23,10 @@ func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []I
 
 	allots := append([]Slot{}, added...)
 	for _, inst := range rms {
-		slots := t[inst]
+		slots, ok := t[inst]
+		if !ok {
+			continue
+		}
 		allots = append(allots, slots...)
 		delete(t, inst)
 	}
@@ -33,11 +39,6 @@ func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []I
 		return t
 	}
 
-	avg := int(math.Floor(float64(total) / float64(len(t))))
-	if avg < 1 {
-		avg = 1
-	}
-
 	hasSlot := func(ss []Slot, s Slot) bool {
 		for i := 0; i < len(ss); i++ {
 			if ss[i] == s {
@@ -47,30 +48,38 @@ func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []I
 		return false
 	}
 
-	evictRepeated := func(ss []Slot) {
-		for i := 0; i < len(ss); i++ {
+	evictOne := func(ss []Slot) ([]Slot, Slot) {
+		n := len(ss)
+		// repeated
+		for i := 0; i < n; i++ {
 			if hasSlot(ss[i+1:], ss[i]) {
-				ss[i], ss[len(ss)-1] = ss[len(ss)-1], ss[i]
-				return
+				ss[i], ss[n-1] = ss[n-1], ss[i]
+				return ss[0 : n-1], ss[n-1]
 			}
 		}
+		// random
+		i := rand.Intn(n)
+		ss[i], ss[n-1] = ss[n-1], ss[i]
+		return ss[0 : n-1], ss[n-1]
 	}
 
-	for need := len(news)*avg - len(allots); need > 0; {
-		noop := true
-		for inst, slots := range t {
-			if len(slots) > avg {
-				evictRepeated(slots)
-				allots = append(allots, slots[len(slots)-1])
-				t[inst] = slots[0 : len(slots)-1]
-				noop = false
-				if need--; need <= 0 {
-					break
+	fillAllots := func(target, threshold int) {
+		for need := target - len(allots); need > 0; {
+			noop := true
+			for inst, slots := range t {
+				if len(slots) > threshold {
+					slots, one := evictOne(slots)
+					t[inst] = slots
+					allots = append(allots, one)
+					noop = false
+					if need--; need <= 0 {
+						break
+					}
 				}
 			}
-		}
-		if noop {
-			break
+			if noop {
+				break
+			}
 		}
 	}
 
@@ -82,6 +91,20 @@ func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []I
 			}
 		}
 		return false
+	}
+
+	ideal := int(math.Round(float64(total) / float64(len(t))))
+	if ideal < 1 {
+		ideal = 1
+	}
+	fillAllots(len(news)*ideal, ideal)
+
+	avg := int(math.Floor(float64(total) / float64(len(t))))
+	if avg < 1 {
+		avg = 1
+	}
+	if avg != ideal {
+		fillAllots(len(news)*avg, avg)
 	}
 
 	for _, allot := range allots {
