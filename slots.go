@@ -5,9 +5,17 @@
 // Package slotsfunc provides several functions to manage slots.
 package slotsfunc
 
-import "math"
+import (
+	"math"
+	"sort"
+)
 
 type Table[Inst, Slot comparable] map[Inst][]Slot
+
+type instSlotLen[Inst comparable] struct {
+	Inst    Inst
+	SlotLen int
+}
 
 func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []Inst, rms []Inst) Table[Inst, Slot] {
 	t := make(Table[Inst, Slot])
@@ -20,7 +28,10 @@ func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []I
 
 	allots := append([]Slot{}, added...)
 	for _, inst := range rms {
-		slots := t[inst]
+		slots, ok := t[inst]
+		if !ok {
+			continue
+		}
 		allots = append(allots, slots...)
 		delete(t, inst)
 	}
@@ -37,6 +48,7 @@ func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []I
 	if avg < 1 {
 		avg = 1
 	}
+	avgCeil := int(math.Ceil(float64(total) / float64(len(t))))
 
 	hasSlot := func(ss []Slot, s Slot) bool {
 		for i := 0; i < len(ss); i++ {
@@ -56,9 +68,24 @@ func Allot[Inst, Slot comparable](base Table[Inst, Slot], added []Slot, news []I
 		}
 	}
 
+	sortedInst := make([]instSlotLen[Inst], 0, len(t))
+	for inst, slots := range t {
+		for len(slots) > avgCeil {
+			evictRepeated(slots)
+			allots = append(allots, slots[len(slots)-1])
+			slots = slots[0 : len(slots)-1]
+		}
+		t[inst] = slots
+		sortedInst = append(sortedInst, instSlotLen[Inst]{inst, len(slots)})
+	}
+	sort.Slice(sortedInst, func(i, j int) bool {
+		return sortedInst[i].SlotLen > sortedInst[j].SlotLen
+	})
 	for need := len(news)*avg - len(allots); need > 0; {
 		noop := true
-		for inst, slots := range t {
+		for _, instLen := range sortedInst {
+			inst := instLen.Inst
+			slots := t[inst]
 			if len(slots) > avg {
 				evictRepeated(slots)
 				allots = append(allots, slots[len(slots)-1])
